@@ -25,7 +25,7 @@ class AutoStack():
         self.y = df[target_label]
         self.x = df.drop(target_label, axis=1)
         self.x_col = self.x.columns
-        self.base_clfs = [XGBClassifier, LogisticRegression, RandomForestClassifier]#, AdaBoostClassifier, ExtraTreesClassifier, GaussianProcessClassifier]
+        self.base_clfs = [XGBClassifier, RandomForestClassifier]#, AdaBoostClassifier, ExtraTreesClassifier, GaussianProcessClassifier]
         self.trained_base_clfs = []
         self.stack_clf = XGBClassifier()
         self.stack_clf = SVC()
@@ -60,7 +60,7 @@ class AutoStack():
 
     def get_best_para(self,clf_obj, x,y):
         at=autotune.ParameterTune(clf_obj,x,y)
-        at.run(pop_num=100, cxpb=0.5, mutpb=0.3, gen_num=10)
+        at.run(pop_num=30, cxpb=0.5, mutpb=0.3, gen_num=10)
         r=at.get_best(1)
         print(r)
         return r[0][1]
@@ -72,18 +72,21 @@ class AutoStack():
         for clf_obj in self.base_clfs:
             single_clf_result = []
             clf = clf_obj()
-            mask = self.select_feature(self.x.values, self.y.values, self.x, clf)
-            #mask = len(self.x.columns)*[True]
+            #mask = self.select_feature(self.x.values, self.y.values, self.x, clf)
+            mask = len(self.x.columns)*[True]
             self.masks.append(mask)
             single_clfs = []
             for data_index in range(len(self.x_train_list)):
                 x_df = pd.DataFrame(self.x_train_list[data_index], columns=self.x_col).loc[:, mask]
                 x = x_df.values
                 y = self.y_train_list[data_index]
+
                 best_para = self.get_best_para(clf_obj, x,y)
                 print("best")
                 print(best_para)
                 clf = clf_obj(**best_para)
+                 
+                #clf = clf_obj()
                 clf.fit(x, y)
                 single_clfs.append(clf)
                 x_test_df = pd.DataFrame(self.x_test_list[data_index], columns=self.x_col).loc[:, mask]
@@ -102,12 +105,12 @@ class AutoStack():
             y_stack.extend(self.y_test_list[i])
         print(y_stack)
         
-        df1 = pd.DataFrame(x_stack, columns=["1","2", "3"])
-        df2 = pd.DataFrame(y_stack, columns=["target"])
+        #df1 = pd.DataFrame(x_stack, columns=["1","2", "3"])
+        #df2 = pd.DataFrame(y_stack, columns=["target"])
         #print(df1.shape)
         #print(df2.shape)
-        df3 = pd.concat([df1,df2],axis=1)
-        df3.to_csv("/tmp/123.csv",index=False)
+        #df3 = pd.concat([df1,df2],axis=1)
+        #df3.to_csv("/tmp/123.csv",index=False)
         return self.stack_clf.fit(x_stack, y_stack), self.masks
 
 #    def predict(self, test_df):
@@ -159,11 +162,11 @@ def f(i):
 
 if __name__ == "__main__":
     target_label = "Survived"
-    df = pd.read_csv("/tmp/middle.csv")
+    df = pd.read_csv("/tmp/middle_rf.csv")
     myas = AutoStack(df, target_label)
     clf, masks = myas.build_stack()
     
-    test_df = pd.read_csv("/tmp/middle2.csv")
+    test_df = pd.read_csv("/tmp/middle2_rf.csv")
     r = myas.predict(test_df)
     print(r)
     df = pd.read_csv("/tmp/test_after_etl.csv")
